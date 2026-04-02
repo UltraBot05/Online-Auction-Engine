@@ -214,7 +214,7 @@ def start_server():
     """Bind, wrap with SSL, listen, and accept clients in a loop."""
     global current_item, current_price
 
-    HOST = "127.0.0.1"
+    HOST = "0.0.0.0"
     PORT = 9999
 
     current_item, current_price = fetch_todays_item()
