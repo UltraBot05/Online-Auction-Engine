@@ -186,17 +186,18 @@ class AuctionApp:
 
 
 def main():
-    bootstrap = tk.Tk()
-    bootstrap.withdraw()
+    # Fix 2: use a single Tk root throughout, withdraw then deiconify
+    root = tk.Tk()
+    root.withdraw()
 
     username = simpledialog.askstring(
         "Auction Login",
         "Enter your bidder name:",
-        parent=bootstrap
+        parent=root
     )
-    bootstrap.destroy()
 
     if not username or not username.strip():
+        root.destroy()
         return
 
     username = username.strip()
@@ -210,13 +211,21 @@ def main():
     try:
         sock.connect((HOST, PORT))
     except ConnectionRefusedError:
+        # Fix 3: close socket properly before showing error
+        sock.close()
         messagebox.showerror(
             "Connection Failed",
-            f"Could not connect to {HOST}:{PORT}\nMake sure server.py is running."
+            f"Could not connect to {HOST}:{PORT}\nMake sure server.py is running.",
+            parent=root
         )
+        root.destroy()
         return
 
+    # Fix 1: consume the name prompt and welcome banner before starting
+    # recv_thread so they don't leak into the GUI log
+    sock.recv(1024)           # "Enter your name: " prompt
     sock.send(username.encode())
+    sock.recv(4096)           # auction welcome banner
 
     msg_queue  = queue.Queue()
     stop_event = threading.Event()
@@ -228,8 +237,9 @@ def main():
     recv_thread.daemon = True
     recv_thread.start()
 
-    root = tk.Tk()
-    app  = AuctionApp(root, sock, username, msg_queue, stop_event)
+    # reuse the same root window instead of creating a second tk.Tk()
+    root.deiconify()
+    app = AuctionApp(root, sock, username, msg_queue, stop_event)
     root.mainloop()
 
 
