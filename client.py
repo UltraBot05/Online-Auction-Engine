@@ -1,5 +1,5 @@
 """
-client.py — Online Auction Engine
+client.py - Online Auction Engine
 Tkinter GUI client with a background receive thread,
 thread-safe queue bridge, color-coded auction log, and SSL/TLS.
 """
@@ -43,7 +43,7 @@ class AuctionApp:
         self.msg_queue  = msg_queue
         self.stop_event = stop_event
 
-        self.root.title(f"Online Auction Engine — {username}")
+        self.root.title(f"Online Auction Engine - {username}")
         self.root.geometry("620x480")
         self.root.resizable(False, False)
 
@@ -168,11 +168,11 @@ class AuctionApp:
         try:
             self.sock.send(bid_text.encode())
         except OSError:
-            self._append_log("[ERROR] Could not send bid — connection lost.\n")
+            self._append_log("[ERROR] Could not send bid - connection lost.\n")
             return
         self.bid_entry.delete(0, tk.END)
         if bid_text.lower() == "quit":
-            self._append_log("[YOU] Sent quit — waiting for server...\n")
+            self._append_log("[YOU] Sent quit - waiting for server...\n")
 
     def _on_close(self):
         """Graceful shutdown on window close or Quit button."""
@@ -202,7 +202,7 @@ def main():
 
     username = username.strip()
 
-    # SSL — verify server identity using the shared certificate
+    # SSL - verify server identity using the shared certificate
     raw_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ssl_context.load_verify_locations("server.pem")
