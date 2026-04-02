@@ -219,7 +219,7 @@ def start_server():
     global current_item, current_price
 
     HOST = "0.0.0.0"
-    PORT = 9999
+    PORT = 8080
 
     current_item, current_price = fetch_todays_item()
 

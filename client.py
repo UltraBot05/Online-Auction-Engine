@@ -12,8 +12,8 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox
 
 
-HOST = "10.246.111.186"
-PORT = 9999
+HOST = "10.1.7.65"
+PORT = 8080
 
 # Toggle SSL/TLS on or off - set to False for plain TCP (no cert needed)
 ENABLE_SSL = False
