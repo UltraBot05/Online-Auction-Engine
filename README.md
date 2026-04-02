@@ -1,5 +1,9 @@
 # Online Auction Engine
 
-> Real-time TCP auction system with SSL/TLS - PES University CN Mini Project
+> Real-time TCP auction system with SSL/TLS — PES University CN Mini Project
 
-Work in progress.
+## Architecture
+
+![System Architecture](architecture.png)
+
+Work in progress — full documentation coming soon.
