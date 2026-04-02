@@ -13,7 +13,7 @@ CYAN    = "\033[96m"
 MAGENTA = "\033[95m"
 RESET   = "\033[0m"
 
-AUCTION_DURATION = 60
+AUCTION_DURATION = 120
 RESET_SECONDS    = 20
 FALLBACK_ITEMS   = [
     ("Nvidia RTX 5090", 1800),
@@ -226,7 +226,6 @@ def start_server():
 
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ssl_context.load_cert_chain(certfile="server.pem", keyfile="server.key")
-    server_socket = ssl_context.wrap_socket(raw_socket, server_side=True)
 
     print(f"{GREEN}[AUCTION SERVER STARTED]{RESET}")
     print(f"{GREEN}  Item     : {current_item}{RESET}")
@@ -241,8 +240,16 @@ def start_server():
 
     # tried asyncio first but threading was easier to reason about for this
     while True:
-        conn, addr = server_socket.accept()
-        client_thread = threading.Thread(target=handle_client, args=(conn, addr))
+        conn, addr = raw_socket.accept()
+        try:
+            tls_conn = ssl_context.wrap_socket(conn, server_side=True)
+        except ssl.SSLError as exc:
+            # Keep server alive even when a non-TLS/invalid client hits the port.
+            print(f"{YELLOW}[TLS HANDSHAKE FAILED] {addr} -> {exc}{RESET}")
+            conn.close()
+            continue
+
+        client_thread = threading.Thread(target=handle_client, args=(tls_conn, addr))
         client_thread.daemon = True
         client_thread.start()
         print(f"{GREEN}[ACTIVE CONNECTIONS] {threading.active_count() - 1}{RESET}")

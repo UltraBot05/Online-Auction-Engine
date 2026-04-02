@@ -204,9 +204,10 @@ def main():
 
     # SSL - verify server identity using the shared certificate
     raw_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    raw_sock.settimeout(8)
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ssl_context.load_verify_locations("server.pem")
-    sock = ssl_context.wrap_socket(raw_sock, server_hostname="10.246.111.186")
+    sock = ssl_context.wrap_socket(raw_sock, server_hostname=HOST)
 
     try:
         sock.connect((HOST, PORT))
@@ -216,6 +217,40 @@ def main():
         messagebox.showerror(
             "Connection Failed",
             f"Could not connect to {HOST}:{PORT}\nMake sure server.py is running.",
+            parent=root
+        )
+        root.destroy()
+        return
+    except TimeoutError:
+        sock.close()
+        messagebox.showerror(
+            "Connection Timed Out",
+            (
+                f"Timed out connecting to {HOST}:{PORT}.\n"
+                "Check LAN/hotspot reachability, host IP, and firewall rule for TCP 9999."
+            ),
+            parent=root
+        )
+        root.destroy()
+        return
+    except ssl.SSLCertVerificationError as exc:
+        sock.close()
+        messagebox.showerror(
+            "TLS Certificate Verification Failed",
+            (
+                "Server certificate does not match the host you connected to.\n"
+                "Regenerate cert with SAN=IP:<server-ip> and use that same IP in HOST.\n\n"
+                f"Details: {exc}"
+            ),
+            parent=root
+        )
+        root.destroy()
+        return
+    except ssl.SSLError as exc:
+        sock.close()
+        messagebox.showerror(
+            "TLS Handshake Failed",
+            f"Secure connection could not be established.\n\nDetails: {exc}",
             parent=root
         )
         root.destroy()
