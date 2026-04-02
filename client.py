@@ -206,7 +206,7 @@ def main():
     raw_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ssl_context.load_verify_locations("server.pem")
-    sock = ssl_context.wrap_socket(raw_sock, server_hostname="10.1.7.65")
+    sock = ssl_context.wrap_socket(raw_sock, server_hostname="10.246.111.186")
 
     try:
         sock.connect((HOST, PORT))
