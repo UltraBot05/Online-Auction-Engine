@@ -15,6 +15,9 @@ from tkinter import simpledialog, messagebox
 HOST = "10.246.111.186"
 PORT = 9999
 
+# Toggle SSL/TLS on or off - set to False for plain TCP (no cert needed)
+ENABLE_SSL = False
+
 
 def receive_messages(sock, msg_queue, stop_event):
     """Continuously read from the socket and enqueue messages for the GUI."""
@@ -186,7 +189,6 @@ class AuctionApp:
 
 
 def main():
-    # Fix 2: use a single Tk root throughout, withdraw then deiconify
     root = tk.Tk()
     root.withdraw()
 
@@ -202,17 +204,21 @@ def main():
 
     username = username.strip()
 
-    # SSL - verify server identity using the shared certificate
     raw_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     raw_sock.settimeout(8)
-    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    ssl_context.load_verify_locations("server.pem")
-    sock = ssl_context.wrap_socket(raw_sock, server_hostname=HOST)
+
+    if ENABLE_SSL:
+        # SSL - verify server identity using the shared certificate
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ssl_context.load_verify_locations("server.pem")
+        sock = ssl_context.wrap_socket(raw_sock, server_hostname=HOST)
+    else:
+        # plain TCP mode - no cert needed
+        sock = raw_sock
 
     try:
         sock.connect((HOST, PORT))
     except ConnectionRefusedError:
-        # Fix 3: close socket properly before showing error
         sock.close()
         messagebox.showerror(
             "Connection Failed",
@@ -256,7 +262,7 @@ def main():
         root.destroy()
         return
 
-    # Fix 1: consume the name prompt and welcome banner before starting
+    # consume the name prompt and welcome banner before starting
     # recv_thread so they don't leak into the GUI log
     sock.recv(1024)           # "Enter your name: " prompt
     sock.send(username.encode())

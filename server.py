@@ -1,5 +1,5 @@
 """
-server.py — Online Auction Engine
+server.py - Online Auction Engine
 Multi-threaded TCP auction server with real-time broadcasting,
 anti-sniping timer, dynamic REST API item loading, and SSL/TLS.
 """
@@ -15,6 +15,10 @@ RESET   = "\033[0m"
 
 AUCTION_DURATION = 300
 RESET_SECONDS    = 20
+
+# Toggle SSL/TLS on or off - set to False for plain TCP (no cert needed)
+ENABLE_SSL = False
+
 FALLBACK_ITEMS   = [
     ("Nvidia RTX 5090", 1800),
     ("MacBook Neo", 2500),
@@ -102,7 +106,7 @@ def auction_timer():
 
     closing = (
         f"\n{'#'*50}\n"
-        f"  AUCTION CLOSED — {current_item}\n"
+        f"  AUCTION CLOSED - {current_item}\n"
         f"  Winner : {winner}\n"
         f"  Price  : ${final_price:.2f}\n"
         f"{'#'*50}\n"
@@ -211,7 +215,7 @@ def handle_client(conn, addr):
 
 
 def start_server():
-    """Bind, wrap with SSL, listen, and accept clients in a loop."""
+    """Bind, wrap with SSL if enabled, listen, and accept clients in a loop."""
     global current_item, current_price
 
     HOST = "0.0.0.0"
@@ -224,14 +228,15 @@ def start_server():
     raw_socket.bind((HOST, PORT))
     raw_socket.listen(5)
 
-    ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    ssl_context.load_cert_chain(certfile="server.pem", keyfile="server.key")
+    if ENABLE_SSL:
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ssl_context.load_cert_chain(certfile="server.pem", keyfile="server.key")
 
     print(f"{GREEN}[AUCTION SERVER STARTED]{RESET}")
     print(f"{GREEN}  Item     : {current_item}{RESET}")
     print(f"{GREEN}  Start    : ${current_price:.2f}{RESET}")
     print(f"{GREEN}  Duration : {AUCTION_DURATION}s{RESET}")
-    print(f"{GREEN}  SSL/TLS  : Enabled (server.pem){RESET}")
+    print(f"{GREEN}  SSL/TLS  : {'Enabled (server.pem)' if ENABLE_SSL else 'DISABLED (plain TCP)'}{RESET}")
     print(f"{GREEN}  Listening on {HOST}:{PORT}\n{RESET}")
 
     timer_thread = threading.Thread(target=auction_timer)
@@ -241,15 +246,16 @@ def start_server():
     # tried asyncio first but threading was easier to reason about for this
     while True:
         conn, addr = raw_socket.accept()
-        try:
-            tls_conn = ssl_context.wrap_socket(conn, server_side=True)
-        except ssl.SSLError as exc:
-            # Keep server alive even when a non-TLS/invalid client hits the port.
-            print(f"{YELLOW}[TLS HANDSHAKE FAILED] {addr} -> {exc}{RESET}")
-            conn.close()
-            continue
+        if ENABLE_SSL:
+            try:
+                conn = ssl_context.wrap_socket(conn, server_side=True)
+            except ssl.SSLError as exc:
+                # Keep server alive even when a non-TLS/invalid client hits the port.
+                print(f"{YELLOW}[TLS HANDSHAKE FAILED] {addr} -> {exc}{RESET}")
+                conn.close()
+                continue
 
-        client_thread = threading.Thread(target=handle_client, args=(tls_conn, addr))
+        client_thread = threading.Thread(target=handle_client, args=(conn, addr))
         client_thread.daemon = True
         client_thread.start()
         print(f"{GREEN}[ACTIVE CONNECTIONS] {threading.active_count() - 1}{RESET}")
