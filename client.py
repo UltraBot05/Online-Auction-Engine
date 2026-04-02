@@ -12,7 +12,7 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox
 
 
-HOST = "10.1.7.65"
+HOST = "10.246.111.186"
 PORT = 9999
 
 
