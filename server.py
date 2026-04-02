@@ -4,7 +4,7 @@ Multi-threaded TCP auction server with real-time broadcasting,
 anti-sniping timer, dynamic REST API item loading, and SSL/TLS.
 """
 
-import socket, ssl, threading, time, urllib.request, random
+import socket, ssl, threading, time, urllib.request, random, json
 
 GREEN   = "\033[92m"
 RED     = "\033[91m"
