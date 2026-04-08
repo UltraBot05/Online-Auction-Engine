@@ -3,10 +3,15 @@
 This is a Python socket programming mini project for a simple online auction system. Clients connect over TCP, place bids from a Tkinter GUI, and receive live updates from the server. SSL/TLS is used to secure the connection.
 
 > **Built for:** PES University - Semester 4, Section A CSE, 2025-26 (2028 batch), Computer Networks Mini-Project
+
 > Built By:
+> 
 > PES2UG24CS:
+> 
 > Abhigyan Dutta (019)
+> 
 > Aakash Agarwal (009)
+> 
 > Aditya Gyaneshwar Mule (031)
 
 ---
