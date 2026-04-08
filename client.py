@@ -25,6 +25,7 @@ def resolve_server_target(root):
     """Resolve the server host/port from CLI args, env vars, or a GUI prompt."""
     host = ""
     port_value = ""
+    port_from_args_or_env = False
 
     if len(sys.argv) > 1:
         host = sys.argv[1].strip()
@@ -33,13 +34,15 @@ def resolve_server_target(root):
 
     if len(sys.argv) > 2:
         port_value = sys.argv[2].strip()
+        port_from_args_or_env = True
     elif os.getenv("AUCTION_PORT"):
         port_value = os.getenv("AUCTION_PORT", "").strip()
+        port_from_args_or_env = True
 
     if not host:
         host = simpledialog.askstring(
-            "Server Address",
-            "Enter the server IPv4 address or hostname:",
+            "Server Host",
+            "Enter server host (localhost, IP, or ngrok host):",
             initialvalue=DEFAULT_HOST,
             parent=root
         )
@@ -55,6 +58,33 @@ def resolve_server_target(root):
             messagebox.showerror(
                 "Invalid Port",
                 f"Port must be a whole number.\nReceived: {port_value}",
+                parent=root
+            )
+            return None, None
+        if not (1 <= port <= 65535):
+            messagebox.showerror(
+                "Invalid Port",
+                f"Port must be between 1 and 65535.\nReceived: {port}",
+                parent=root
+            )
+            return None, None
+
+    if not port_from_args_or_env:
+        port_input = simpledialog.askstring(
+            "Server Port",
+            "Enter server port:",
+            initialvalue=str(port),
+            parent=root
+        )
+        if port_input is None:
+            return None, None
+        port_input = port_input.strip() or str(port)
+        try:
+            port = int(port_input)
+        except ValueError:
+            messagebox.showerror(
+                "Invalid Port",
+                f"Port must be a whole number.\nReceived: {port_input}",
                 parent=root
             )
             return None, None
