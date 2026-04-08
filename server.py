@@ -17,7 +17,7 @@ AUCTION_DURATION = 300
 RESET_SECONDS    = 20
 
 # Toggle SSL/TLS on or off - set to False for plain TCP (no cert needed)
-ENABLE_SSL = False
+ENABLE_SSL = True
 
 FALLBACK_ITEMS   = [
     ("Nvidia RTX 5090", 1800),
@@ -35,6 +35,50 @@ time_remaining = AUCTION_DURATION
 bid_lock     = threading.Lock()
 clients      = []
 clients_lock = threading.Lock()
+
+
+def discover_local_ipv4_addresses():
+    """Best-effort list of local IPv4 addresses teammates can try."""
+    addresses = set()
+
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET, socket.SOCK_STREAM):
+            ip = info[4][0]
+            if ip:
+                addresses.add(ip)
+    except socket.gaierror:
+        pass
+
+    for probe_host in ("8.8.8.8", "1.1.1.1"):
+        probe = None
+        try:
+            probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            probe.connect((probe_host, 80))
+            addresses.add(probe.getsockname()[0])
+        except OSError:
+            pass
+        finally:
+            if probe is not None:
+                probe.close()
+
+    if not addresses:
+        addresses.add("127.0.0.1")
+
+    return sorted(addresses, key=lambda ip: (ip.startswith("127."), ip))
+
+
+def pick_demo_ip_candidates():
+    """Filter out obvious virtual/local-only adapter ranges for demo output."""
+    ignored_prefixes = (
+        "127.",
+        "172.28.",     # WSL / Hyper-V
+        "192.168.56.", # VirtualBox host-only
+        "192.168.58.", # VMware host-only
+        "192.168.115." # VMware NAT on this machine
+    )
+    all_ips = discover_local_ipv4_addresses()
+    preferred = [ip for ip in all_ips if not ip.startswith(ignored_prefixes)]
+    return preferred, all_ips
 
 
 def fetch_todays_item():
@@ -122,6 +166,10 @@ def handle_client(conn, addr):
 
     print(f"{GREEN}[NEW CONNECTION] {addr} connected.{RESET}")
 
+    # Print TLS cipher details if SSL is active - proof of encryption for demo
+    if ENABLE_SSL:
+        print(f"{CYAN}[TLS] {addr} cipher: {conn.cipher()}{RESET}")
+
     try:
         conn.send("Enter your name: ".encode())
         username = conn.recv(1024).decode().strip()
@@ -192,7 +240,7 @@ def handle_client(conn, addr):
                     closed_now = False
 
             if accepted:
-                print(f"{MAGENTA}[BID] {username} raised price ${old_price:.2f} → ${bid_amount:.2f}{RESET}")
+                print(f"{MAGENTA}[BID] {username} raised price ${old_price:.2f} -> ${bid_amount:.2f}{RESET}")
                 broadcast(
                     f"\n  [NEW BID] {username} bid ${bid_amount:.2f} for {current_item}!\n"
                     f"  Current leader : {username} @ ${bid_amount:.2f}\n"
@@ -203,7 +251,7 @@ def handle_client(conn, addr):
             else:
                 conn.send("[REJECTED] Bids must be whole numbers and at least $5 higher than the current price.\n".encode())
 
-    except (ConnectionResetError, BrokenPipeError):
+    except (ConnectionResetError, ConnectionAbortedError, BrokenPipeError, ssl.SSLError, OSError):
         print(f"{RED}[DISCONNECT] {addr} lost connection abruptly.{RESET}")
 
     finally:
@@ -219,7 +267,7 @@ def start_server():
     global current_item, current_price
 
     HOST = "0.0.0.0"
-    PORT = 8080
+    PORT = 9999
 
     current_item, current_price = fetch_todays_item()
 
@@ -238,6 +286,22 @@ def start_server():
     print(f"{GREEN}  Duration : {AUCTION_DURATION}s{RESET}")
     print(f"{GREEN}  SSL/TLS  : {'Enabled (server.pem)' if ENABLE_SSL else 'DISABLED (plain TCP)'}{RESET}")
     print(f"{GREEN}  Listening on {HOST}:{PORT}\n{RESET}")
+
+    preferred_ips, all_ips = pick_demo_ip_candidates()
+    if preferred_ips:
+        print(f"{CYAN}[CONNECT FROM OTHER DEVICES] Try this first:{RESET}")
+        print(f"{CYAN}  python client.py {preferred_ips[0]} {PORT}{RESET}")
+        if len(preferred_ips) > 1:
+            print(f"{CYAN}  Other possible real-network IPs: {', '.join(preferred_ips[1:])}{RESET}")
+        print()
+    elif all_ips:
+        fallback_ips = [ip for ip in all_ips if not ip.startswith("127.")]
+        if fallback_ips:
+            print(f"{YELLOW}[CONNECT FROM OTHER DEVICES] No clear primary adapter found. Try:{RESET}")
+            print(f"{YELLOW}  python client.py {fallback_ips[0]} {PORT}{RESET}\n")
+    else:
+        print(f"{YELLOW}[CONNECT FROM OTHER DEVICES] No non-loopback IPv4 detected automatically.{RESET}")
+        print(f"{YELLOW}  Share the server laptop's hotspot/LAN IPv4 and keep TCP {PORT} allowed in the firewall.{RESET}\n")
 
     timer_thread = threading.Thread(target=auction_timer)
     timer_thread.daemon = True

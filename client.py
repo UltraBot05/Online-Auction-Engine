@@ -8,15 +8,65 @@ import socket
 import ssl
 import threading
 import queue
+import os
+import sys
 import tkinter as tk
 from tkinter import simpledialog, messagebox
 
 
-HOST = "10.1.7.65"
-PORT = 8080
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 9999
 
 # Toggle SSL/TLS on or off - set to False for plain TCP (no cert needed)
-ENABLE_SSL = False
+ENABLE_SSL = True
+
+
+def resolve_server_target(root):
+    """Resolve the server host/port from CLI args, env vars, or a GUI prompt."""
+    host = ""
+    port_value = ""
+
+    if len(sys.argv) > 1:
+        host = sys.argv[1].strip()
+    elif os.getenv("AUCTION_HOST"):
+        host = os.getenv("AUCTION_HOST", "").strip()
+
+    if len(sys.argv) > 2:
+        port_value = sys.argv[2].strip()
+    elif os.getenv("AUCTION_PORT"):
+        port_value = os.getenv("AUCTION_PORT", "").strip()
+
+    if not host:
+        host = simpledialog.askstring(
+            "Server Address",
+            "Enter the server IPv4 address or hostname:",
+            initialvalue=DEFAULT_HOST,
+            parent=root
+        )
+        if host is None:
+            return None, None
+        host = host.strip() or DEFAULT_HOST
+
+    port = DEFAULT_PORT
+    if port_value:
+        try:
+            port = int(port_value)
+        except ValueError:
+            messagebox.showerror(
+                "Invalid Port",
+                f"Port must be a whole number.\nReceived: {port_value}",
+                parent=root
+            )
+            return None, None
+        if not (1 <= port <= 65535):
+            messagebox.showerror(
+                "Invalid Port",
+                f"Port must be between 1 and 65535.\nReceived: {port}",
+                parent=root
+            )
+            return None, None
+
+    return host, port
 
 
 def receive_messages(sock, msg_queue, stop_event):
@@ -29,6 +79,10 @@ def receive_messages(sock, msg_queue, stop_event):
                 stop_event.set()
                 break
             msg_queue.put(data)
+        except socket.timeout:
+            # The socket is used in blocking mode after connect, but tolerate
+            # stray timeouts so a quiet auction does not look like a disconnect.
+            continue
         except (ConnectionResetError, OSError):
             if not stop_event.is_set():
                 msg_queue.put("\n[DISCONNECT] Lost connection to server.\n")
@@ -192,6 +246,11 @@ def main():
     root = tk.Tk()
     root.withdraw()
 
+    host, port = resolve_server_target(root)
+    if not host:
+        root.destroy()
+        return
+
     username = simpledialog.askstring(
         "Auction Login",
         "Enter your bidder name:",
@@ -210,19 +269,22 @@ def main():
     if ENABLE_SSL:
         # SSL - verify server identity using the shared certificate
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_REQUIRED
         ssl_context.load_verify_locations("server.pem")
-        sock = ssl_context.wrap_socket(raw_sock, server_hostname=HOST)
+        sock = ssl_context.wrap_socket(raw_sock, server_hostname=host)
     else:
         # plain TCP mode - no cert needed
         sock = raw_sock
 
     try:
-        sock.connect((HOST, PORT))
+        sock.connect((host, port))
+        sock.settimeout(None)
     except ConnectionRefusedError:
         sock.close()
         messagebox.showerror(
             "Connection Failed",
-            f"Could not connect to {HOST}:{PORT}\nMake sure server.py is running.",
+            f"Could not connect to {host}:{port}\nMake sure server.py is running.",
             parent=root
         )
         root.destroy()
@@ -232,7 +294,7 @@ def main():
         messagebox.showerror(
             "Connection Timed Out",
             (
-                f"Timed out connecting to {HOST}:{PORT}.\n"
+                f"Timed out connecting to {host}:{port}.\n"
                 "Check LAN/hotspot reachability, host IP, and firewall rule for TCP 9999."
             ),
             parent=root
@@ -244,8 +306,8 @@ def main():
         messagebox.showerror(
             "TLS Certificate Verification Failed",
             (
-                "Server certificate does not match the host you connected to.\n"
-                "Regenerate cert with SAN=IP:<server-ip> and use that same IP in HOST.\n\n"
+                "This client does not trust the certificate presented by the server.\n"
+                "Make sure every client has the same shared server.pem file from the server machine.\n\n"
                 f"Details: {exc}"
             ),
             parent=root
