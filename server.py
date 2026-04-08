@@ -13,7 +13,7 @@ CYAN    = "\033[96m"
 MAGENTA = "\033[95m"
 RESET   = "\033[0m"
 
-AUCTION_DURATION = 300
+AUCTION_DURATION = 120
 RESET_SECONDS    = 20
 
 # Toggle SSL/TLS on or off - set to False for plain TCP (no cert needed)
@@ -289,19 +289,17 @@ def start_server():
 
     preferred_ips, all_ips = pick_demo_ip_candidates()
     if preferred_ips:
-        print(f"{CYAN}[CONNECT FROM OTHER DEVICES] Try this first:{RESET}")
-        print(f"{CYAN}  python client.py {preferred_ips[0]} {PORT}{RESET}")
-        if len(preferred_ips) > 1:
-            print(f"{CYAN}  Other possible real-network IPs: {', '.join(preferred_ips[1:])}{RESET}")
+        print(f"{CYAN}[CONNECT FROM OTHER DEVICES]{RESET}")
+        print(f"{CYAN}  If using ngrok TCP: python client.py <host-from-ngrok> <port-from-ngrok>{RESET}")
         print()
     elif all_ips:
         fallback_ips = [ip for ip in all_ips if not ip.startswith("127.")]
         if fallback_ips:
-            print(f"{YELLOW}[CONNECT FROM OTHER DEVICES] No clear primary adapter found. Try:{RESET}")
-            print(f"{YELLOW}  python client.py {fallback_ips[0]} {PORT}{RESET}\n")
+            print(f"{YELLOW}[CONNECT FROM OTHER DEVICES]{RESET}")
+            print(f"{YELLOW}  If using ngrok TCP: python client.py <host-from-ngrok> <port-from-ngrok>{RESET}\n")
     else:
         print(f"{YELLOW}[CONNECT FROM OTHER DEVICES] No non-loopback IPv4 detected automatically.{RESET}")
-        print(f"{YELLOW}  Share the server laptop's hotspot/LAN IPv4 and keep TCP {PORT} allowed in the firewall.{RESET}\n")
+        print(f"{YELLOW}  If using ngrok TCP: python client.py <host-from-ngrok> <port-from-ngrok>{RESET}\n")
 
     timer_thread = threading.Thread(target=auction_timer)
     timer_thread.daemon = True

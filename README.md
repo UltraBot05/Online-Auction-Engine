@@ -75,7 +75,7 @@ The server will:
 1. Fetch a random item from the API or fallback list.
 2. Bind to `0.0.0.0:9999` and start listening.
 3. Start the auction countdown.
-4. Print local IPv4 addresses that can be tried from other devices.
+4. Print a reminder showing how clients can connect if an ngrok TCP tunnel is being used.
 
 ### 2. Connect One or More Clients
 
@@ -84,10 +84,16 @@ Open a new terminal for each bidder:
 python client.py
 ```
 
-Or pass the server address explicitly:
+For local testing, use:
 
 ```bash
-python client.py 192.168.137.1 9999
+python client.py 127.0.0.1 9999
+```
+
+For cross-device testing through ngrok TCP, use the host and port shown by the ngrok tunnel:
+
+```bash
+python client.py <host-from-ngrok> <port-from-ngrok>
 ```
 
 Each client will:
@@ -192,11 +198,12 @@ Performance was checked locally using `perf_eval.py`, which uses the same socket
 
 ### Testing Constraint
 
-Cross-device testing depended on the network setup. On restrictive networks such as
-captive-portal Wi-Fi or mobile hotspots with client isolation/AP isolation, remote clients
-may fail to reach the server even when the program itself is working correctly.
-Localhost testing was used for the final benchmark because it still exercises the full TCP
-and TLS stack without depending on external network policy.
+Benchmark values in this README were collected on localhost so that latency and throughput
+could be measured without outside network interference. During cross-device testing, direct
+LAN or hotspot connections were unreliable on some restrictive networks, likely because of
+client isolation or firewall policy. Cross-device connectivity was later tested successfully
+using an ngrok TCP tunnel, which allowed remote clients to connect to the same auction server
+over the internet while keeping the socket/TLS logic unchanged.
 
 ---
 
@@ -206,7 +213,9 @@ and TLS stack without depending on external network policy.
 - The client no longer shows false disconnects during quiet periods after connection setup.
 - Abrupt client closes are handled more safely during stress testing.
 - Invalid bid formats are rejected cleanly.
-- Cross-device testing suggested that some hotspot or captive-portal networks were blocking peer-to-peer reachability even though the local TCP/TLS setup was working.
+- Direct cross-device testing on some hotspot or captive-portal networks suggested peer-to-peer reachability issues even though the local TCP/TLS setup was working.
+- Cross-device testing was later made possible through an ngrok TCP tunnel, which confirmed that the application could work across physical devices when network restrictions were bypassed.
+- A late-join connection issue was observed during one ngrok-based test and was traced to the connection path rather than the auction timer logic; the server accept loop itself continues to run throughout the auction.
 
 ---
 
